@@ -1,0 +1,41 @@
+services:
+  database:
+    image: bubu11e/mariadb:v1.0
+    container_name: mariadb
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: tasksdb
+    volumes:
+      - ./db-data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - proxy
+
+  backend:
+    image: bubu11e/backend-express:v1.0  # Dossier contenant ton Dockerfile Node.js
+    container_name: conteneur_backend
+    environment:
+      DB_HOST: mariadb
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: tasksdb
+    ports:
+      - "3000:3000"
+    depends_on:
+      - database
+    networks:
+      - proxy
+
+  frontend:
+    image: bubu11e/frontend-react:v2.0 # Dossier contenant ton Dockerfile Vue.js
+    container_name: conteneur_frontend
+    ports:
+      - "8080:8080"
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
+    driver: bridge

@@ -1,20 +1,23 @@
-# Use the latest LTS version of Node.js
-FROM node:20
+FROM node:lts-alpine
 
-# Set the working directory inside the container
+# install simple http server for serving static content
+RUN npm install -g http-server
+
+# make the 'app' folder the current working directory
 WORKDIR /app
- 
-# Copy package.json and package-lock.json
+
+# copy both 'package.json' and 'package-lock.json' (if available)
 COPY package*.json ./
- 
-# Install dependencies
+
+# install project dependencies
 RUN npm install
- 
-# Copy the rest of your application files
+
+# copy project files and folders to the current working directory (i.e. 'app' folder)
 COPY . .
- 
-# Expose the port your app runs on
-EXPOSE 3000
- 
-# Define the command to run your app
-CMD ["npm", "run", "dev", "--", "--host"]
+
+# build app for production with minification
+RUN npm run build
+
+# Attention de bien utilisé le port qui se trouve dans le fichier vite.config.js
+EXPOSE 8080
+CMD [ "http-server", "dist" ]
