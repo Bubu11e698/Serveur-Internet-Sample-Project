@@ -26,14 +26,23 @@ services:
       - database
     networks:
       - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.conteneur_backend.rule=Host(`tasklist.morincharleseric.online`) && PathPrefix(`/api/tasks`)"
+      - "traefik.http.routers.conteneur_backend.entrypoints=web"
 
   frontend:
-    image: bubu11e/frontend-react:v2.0 # Dossier contenant ton Dockerfile Vue.js
+    image: bubu11e/frontend-react:v2.1 # Dossier contenant ton Dockerfile Vue.js
     container_name: conteneur_frontend
-    ports:
-      - "8080:8080"
+    # ports:
+    #   - "8080:8080"
     networks:
       - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.conteneur_frontend.rule=Host(`tasklist.morincharleseric.online`)"
+      - "traefik.http.routers.conteneur_frontend.entrypoints=web"
+      - "traefik.http.services.conteneur_frontend.loadbalancer.server.port=8080"
 
 networks:
   proxy:
