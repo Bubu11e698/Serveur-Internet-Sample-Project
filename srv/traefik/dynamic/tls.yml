@@ -1,0 +1,4 @@
+tls:
+  certificates:
+    - certFile: /etc/letsencrypt/live/morincharleseric.online/fullchain.pem
+      keyFile: /etc/letsencrypt/live/morincharleseric.online/privkey.pem
