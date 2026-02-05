@@ -1,0 +1,70 @@
+services:
+  traefik:
+    image: "traefik:v3.6"
+    container_name: "traefik"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - proxy
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=proxy"
+      - "--entryPoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--api.dashboard=true"
+      # - "--api.insecure=true"
+      - "--log.level=DEBUG"
+      - "--certificatesresolvers.letsencrypt.acme.email=charlis698@gmail.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/etc/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+    ports:
+      - "80:80"
+      - "443:443"
+      # - "8080:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./dynamic:/root/srv/traefik/dynamic:ro"
+      - "/etc/letsencrypt:/etc/letsencrypt"
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.morincharleseric.online`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls=true"
+      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.traefik.middlewares=tinyauth"
+  tinyAuth:
+    image: "ghcr.io/steveiliop56/tinyauth:v4"
+    container_name: "tinyAuth"
+    restart: unless-stopped
+    networks:
+      - proxy
+    environment:
+      - TZ=${TZ}
+      - AUTH_USERS=${AUTH_USERS}
+      - AUTH_LOGLEVEL=${AUTH_LOGLEVEL}
+      - AUTH_PORT=${AUTH_PORT}
+      - APP_URL=${APP_URL}
+      - USERS=${USERS}
+      - PROVIDERS_GOOGLE_CLIENT_ID=${PROVIDERS_GOOGLE_CLIENT_ID}
+      - PROVIDERS_GOOGLE_CLIENT_SECRET=${PROVIDERS_GOOGLE_CLIENT_SECRET}
+      - OAUTH_WHITELIST=${OAUTH_WHITELIST}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.tinyAuth.rule=Host(`tinyauth.morincharleseric.online`)"
+      - "traefik.http.routers.tinyAuth.entrypoints=websecure"
+      - "traefik.http.routers.tinyAuth.tls=true"
+      - "traefik.http.routers.tinyAuth.tls.certresolver=letsencrypt"
+      - "traefik.http.services.tinyAuth.loadbalancer.server.port=3000"
+      - "traefik.http.middlewares.tinyauth.forwardauth.address=http://tinyauth:3000/api/auth/traefik"
+
+
+networks:
+  proxy:
+    external: true
