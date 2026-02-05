@@ -3,8 +3,9 @@ services:
     image: bubu11e/mariadb:v1.0
     container_name: mariadb
     environment:
-      MARIADB_ROOT_PASSWORD: root
-      MARIADB_DATABASE: tasksdb
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${MARIADB_DATABASE}
+    restart: unless-stopped
     volumes:
       - ./db-data:/var/lib/mysql
     ports:
@@ -13,13 +14,13 @@ services:
       - proxy
 
   backend:
-    image: bubu11e/backend-express:v1.0  # Dossier contenant ton Dockerfile Node.js
+    image: bubu11e/backend-express:v1.0 
     container_name: conteneur_backend
     environment:
-      DB_HOST: mariadb
-      DB_USER: root
-      DB_PASSWORD: root
-      DB_NAME: tasksdb
+      DB_HOST: ${DB_HOST}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
     ports:
       - "3000:3000"
     depends_on:
@@ -29,10 +30,14 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.conteneur_backend.rule=Host(`tasklist.morincharleseric.online`) && PathPrefix(`/api/tasks`)"
-      - "traefik.http.routers.conteneur_backend.entrypoints=web"
+      - "traefik.http.routers.conteneur_backend.entrypoints=websecure"
+      - "traefik.http.routers.conteneur_backend.tls=true"
+      - "traefik.http.routers.conteneur_backend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.conteneur_backend.loadbalancer.server.port=3000"
+
 
   frontend:
-    image: bubu11e/frontend-react:v2.1 # Dossier contenant ton Dockerfile Vue.js
+    image: bubu11e/frontend-react:v2.1 
     container_name: conteneur_frontend
     # ports:
     #   - "8080:8080"
@@ -41,8 +46,11 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.conteneur_frontend.rule=Host(`tasklist.morincharleseric.online`)"
-      - "traefik.http.routers.conteneur_frontend.entrypoints=web"
+      - "traefik.http.routers.conteneur_frontend.entrypoints=websecure"
+      - "traefik.http.routers.conteneur_frontend.tls=true"
+      - "traefik.http.routers.conteneur_frontend.tls.certresolver=letsencrypt"
       - "traefik.http.services.conteneur_frontend.loadbalancer.server.port=8080"
+      - "traefik.http.routers.conteneur_frontend.middlewares=tinyauth"
 
 networks:
   proxy:
