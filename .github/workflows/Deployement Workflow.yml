@@ -1,0 +1,112 @@
+name: Deploy Docker Infra
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  Deploy-Docker-Infra:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          envs: >-
+            BACKEND_DB_HOST,BACKEND_DB_NAME,BACKEND_DB_PASSWORD,BACKEND_DB_USER,
+            BACKEND_HOST,BACKEND_PORT,TASKLIST_DB_HOST,TASKLIST_DB_NAME,
+            TASKLIST_DB_PASSWORD,TASKLIST_DB_USER,TASKLIST_MARIADB_DATABASE,
+            TASKLIST_MARIADB_ROOT_PASSWORD,TRAEFIK_APP_URL,TRAEFIK_AUTH_LOGLEVEL,
+            TRAEFIK_AUTH_PO,TRAEFIK_AUTH_USERS,TRAEFIK_OAUTH_WHITELIST,
+            TRAEFIK_PROVIDERS_GOOGLE_CLIENT_ID,TRAEFIK_PROVIDERS_GOOGLE_CLIENT_SECRET,
+            TRAEFIK_TZ,TRAEFIK_USERS,GH_TOKEN
+
+          script: |
+            GITHUB_USER="Bubu11e698"
+            REPO_NAME="Serveur-Internet-Sample-Project"
+            TARGET_DIR="/home/${{ secrets.SSH_USER }}/$REPO_NAME"
+
+            # 7. Cloner le répertoire
+            git clone https://$GH_TOKEN@github.com/$GITHUB_USER/$REPO_NAME.git $TARGET_DIR
+
+            # 8. Copier le contenu de srv vers ~/srv
+            mkdir -p ~/srv
+            [ -d "$TARGET_DIR/srv" ] && cp -r $TARGET_DIR/srv/* ~/srv/
+
+            # --- SERVICE 1 : TRAEFIK (Reverse Proxy) ---
+            echo ">>> Configuration et lancement de TRAEFIK"
+            # (Si Traefik est dans un sous-dossier, fais cd $TARGET_DIR/traefik)
+            cd $TARGET_DIR 
+            cat <<EOF > .env
+            TRAEFIK_APP_URL=$TRAEFIK_APP_URL
+            TRAEFIK_AUTH_LOGLEVEL=$TRAEFIK_AUTH_LOGLEVEL
+            TRAEFIK_AUTH_PO=$TRAEFIK_AUTH_PO
+            TRAEFIK_AUTH_USERS=$TRAEFIK_AUTH_USERS
+            TRAEFIK_OAUTH_WHITELIST=$TRAEFIK_OAUTH_WHITELIST
+            TRAEFIK_PROVIDERS_GOOGLE_CLIENT_ID=$TRAEFIK_PROVIDERS_GOOGLE_CLIENT_ID
+            TRAEFIK_PROVIDERS_GOOGLE_CLIENT_SECRET=$TRAEFIK_PROVIDERS_GOOGLE_CLIENT_SECRET
+            TRAEFIK_TZ=$TRAEFIK_TZ
+            TRAEFIK_USERS=$TRAEFIK_USERS
+            EOF
+            docker compose up -d --force-recreate --remove-orphans
+
+            # --- SERVICE 2 : BACKEND & DATABASE ---
+            echo ">>> Configuration et lancement du BACKEND"
+            # On réutilise ou on complète le .env selon ton architecture
+            cat <<EOF >> .env
+            BACKEND_DB_HOST=$BACKEND_DB_HOST
+            BACKEND_DB_NAME=$BACKEND_DB_NAME
+            BACKEND_DB_PASSWORD=$BACKEND_DB_PASSWORD
+            BACKEND_DB_USER=$BACKEND_DB_USER
+            BACKEND_HOST=$BACKEND_HOST
+            BACKEND_PORT=$BACKEND_PORT
+            TASKLIST_DB_HOST=$TASKLIST_DB_HOST
+            TASKLIST_DB_NAME=$TASKLIST_DB_NAME
+            TASKLIST_DB_PASSWORD=$TASKLIST_DB_PASSWORD
+            TASKLIST_DB_USER=$TASKLIST_DB_USER
+            TASKLIST_MARIADB_DATABASE=$TASKLIST_MARIADB_DATABASE
+            TASKLIST_MARIADB_ROOT_PASSWORD=$TASKLIST_MARIADB_ROOT_PASSWORD
+            EOF
+            
+            # 11. Relancer pour appliquer les variables du Backend
+            docker compose pull
+            docker compose up -d --force-recreate --remove-orphans
+
+            # 9. Nettoyage final
+            cd /home/${{ secrets.SSH_USER }}
+            rm -rf $TARGET_DIR
+            docker system prune -f
+            echo ">>> TOUS LES SERVICES SONT DEPLOYÉS"
+
+        env:
+          # Mapping des secrets (On garde tout ici pour simplifier)
+          BACKEND_DB_HOST: ${{ secrets.BACKEND_DB_HOST }}
+          BACKEND_DB_NAME: ${{ secrets.BACKEND_DB_NAME }}
+          BACKEND_DB_PASSWORD: ${{ secrets.BACKEND_DB_PASSWORD }}
+          BACKEND_DB_USER: ${{ secrets.BACKEND_DB_USER }}
+          BACKEND_HOST: ${{ secrets.BACKEND_HOST }}
+          BACKEND_PORT: ${{ secrets.BACKEND_PORT }}
+          TASKLIST_DB_HOST: ${{ secrets.TASKLIST_DB_HOST }}
+          TASKLIST_DB_NAME: ${{ secrets.TASKLIST_DB_NAME }}
+          TASKLIST_DB_PASSWORD: ${{ secrets.TASKLIST_DB_PASSWORD }}
+          TASKLIST_DB_USER: ${{ secrets.TASKLIST_DB_USER }}
+          TASKLIST_MARIADB_DATABASE: ${{ secrets.TASKLIST_MARIADB_DATABASE }}
+          TASKLIST_MARIADB_ROOT_PASSWORD: ${{ secrets.TASKLIST_MARIADB_ROOT_PASSWORD }}
+          TRAEFIK_APP_URL: ${{ secrets.TRAEFIK_APP_URL }}
+          TRAEFIK_AUTH_LOGLEVEL: ${{ secrets.TRAEFIK_AUTH_LOGLEVEL }}
+          TRAEFIK_AUTH_PO: ${{ secrets.TRAEFIK_AUTH_PO }}
+          TRAEFIK_AUTH_USERS: ${{ secrets.TRAEFIK_AUTH_USERS }}
+          TRAEFIK_OAUTH_WHITELIST: ${{ secrets.TRAEFIK_OAUTH_WHITELIST }}
+          TRAEFIK_PROVIDERS_GOOGLE_CLIENT_ID: ${{ secrets.TRAEFIK_PROVIDERS_GOOGLE_CLIENT_ID }}
+          TRAEFIK_PROVIDERS_GOOGLE_CLIENT_SECRET: ${{ secrets.TRAEFIK_PROVIDERS_GOOGLE_CLIENT_SECRET }}
+          TRAEFIK_TZ: ${{ secrets.TRAEFIK_TZ }}
+          TRAEFIK_USERS: ${{ secrets.TRAEFIK_USERS }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
